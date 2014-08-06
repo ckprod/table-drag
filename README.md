@@ -3,7 +3,7 @@ table-drag
 
 Adds basic functionality to html tables: dragging.
 
-###Sample
+###Samples
 
 See [here](http://irhc.github.io/table-drag) for some samples. Its a pain in the ass to get it working with all popular render engines. At least it is fully working with Blink and Gecko (e.g. latest versions of Chrome, Opera, Safari, etc.), minor issus (vertical alignment) with Webkit (e.g. Firefox) , but Trident is really hard to hack (missing computed styles, missing rendered sizes, floating point sizes, etc.): comments are very welcome.
 
