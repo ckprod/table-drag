@@ -38,7 +38,18 @@ function benchmark(text, time) {
         
         // private functions
         function elementStyleProperty (element, prop) {
-            return window.getComputedStyle(element, "").getPropertyValue(prop);
+			if (window.getComputedStyle) {
+				return window.getComputedStyle(element, "").getPropertyValue(prop);
+			} else { // http://stackoverflow.com/questions/21797258/getcomputedstyle-like-javascript-function-for-ie8
+				var re = /(\-([a-z]){1})/g;
+				if (prop == 'float') prop = 'styleFloat';
+				if (re.test(prop)) {
+					prop = prop.replace(re, function () {
+						return arguments[2].toUpperCase();
+					});
+				}
+				return element.currentStyle[prop]
+			}
         };
         
         function numericProperty (prop) {
@@ -47,7 +58,6 @@ function benchmark(text, time) {
         
         // The overriden placeholder methods
         this.mouseStart = function(event) {
-            
             var borderCollapse = elementStyleProperty(table,'border-collapse'),
                 styleLeft = numericProperty(elementStyleProperty(table,'border-left-width')),
                 renderLeft = table.clientLeft,
@@ -67,7 +77,7 @@ function benchmark(text, time) {
                 zIndex = zIndex ? zIndex+1 : 1,
                 tablePosition = getOffsetRect(table),
                 tableWidth = diffLeft ? table.offsetWidth : table.clientWidth,
-                initialColumn = event.target.cellIndex;
+                initialColumn = eventTarget(event).cellIndex;
             
             DEBUG && log('style vs rendering diffLeft: ' + styleLeft + ' vs ' + renderLeft + ' ' +  diffLeft);
             DEBUG && log('style vs rendering diffTop: ' + styleTop + ' vs ' + renderTop + ' ' +  diffTop);             
@@ -157,11 +167,11 @@ function benchmark(text, time) {
                 middle.style.left = cellPosition.left - tablePosition.left - table.clientLeft + 'px';
                 middle.style.top = cellPosition.top - numericProperty(back.style.top) - (diffTop ? renderTop : 0) + 'px';   
                 middle.style.zIndex = zIndex + 1;
-				
+
 				// DEBUGGING
 				//middle.style.top = cellPosition.top - tablePosition.top - table.clientTop + 90 - i*5 + 'px';
 				//middle.style.backgroundColor = "orange";
-				
+
                 var front = document.createElement("div");
                 front.style.cssText = copyStyles(cell);
                 // doesnt work properly with firefox
@@ -175,11 +185,11 @@ function benchmark(text, time) {
                 front.style.zIndex = zIndex + 2;
                 front.style.height = cell.clientHeight - paddingTop - paddingBottom + 'px';
                 front.innerHTML = cell.innerHTML;
-				
+
 				// DEBUGGING
                 //front.style.top = 50 + 'px';
 				//if (i == initialColumn) front.style.top = numericProperty(middle.style.top) + 10 + 'px';
-				
+
                 // drag element
                 if (i == initialColumn) this.de = front;
                 back.appendChild(middle);
@@ -197,7 +207,7 @@ function benchmark(text, time) {
             return true;
         };        
         this.mouseDrag = function(event) {
-            var distance = event.pageX-this.mouseDownEvent.pageX,
+            var distance = pageX(event)-pageX(this.mouseDownEvent),
                 lastColumn = this.lc,
                 eventColumn = getTableColumn(table, event, lastColumn),
                 diffLeft = this.diffLeft;
@@ -205,7 +215,7 @@ function benchmark(text, time) {
             this.de.style.left = numericProperty(this.de.style.left) + distance + 'px';
  
             if (eventColumn != lastColumn) { // bubble
-			    
+
                 var borderCollapse = elementStyleProperty(table,'border-collapse'),
                     borderSpacing = borderCollapse=='collapse' ? 0 : numericProperty(elementStyleProperty(table,'border-spacing')),
                     direction = sign(eventColumn - lastColumn);
@@ -308,34 +318,41 @@ function benchmark(text, time) {
                     that.mouseDown(event);
                 });
             }
-            
+
             return false;
         },
         
         // This simple javascript code is based on 
         // https://github.com/jquery/jquery-ui/blob/master/ui/mouse.js
         mouseDown: function (event) {
+			// cross browser support
+			event = event || window.event;
 
             // we may have missed mouseup (out of window) - clean start, reset all
             (this.mouseStarted && this.mouseUp(event));
-            
+
             // to compute the first (and the following) resize move correctly
             this.mouseDownEvent = event;
-            
+
             // only left mouse button down is of interest
-            if (event.which !== 1) {
-                return true;
-            }
-            
+			if (eventWhich(event)!==1) {
+				return true;
+			}
+			
             // lets start
             if (this.mouseDistanceMet(event)) {
                 this.mouseStarted = (this.mouseStart(event) !== false);
                 if (!this.mouseStarted) {
-                    event.preventDefault();
+					if (event.preventDefault) {
+						event.preventDefault();
+					} else {
+						event.returnValue = false;
+					}
+					
                     return true;
                 }
             }
-            
+			
             // to keep context
             var that = this;
             this.mouseMoveDelegate = function(event) {
@@ -348,7 +365,11 @@ function benchmark(text, time) {
             addEvent(document.body, 'mousemove', this.mouseMoveDelegate);
             addEvent(document.body, 'mouseup', this.mouseUpDelegate);
     
-            event.preventDefault();
+			if (event.preventDefault) {
+				event.preventDefault();
+			} else {
+				event.returnValue = false;
+			}
     
             return true;
         },
@@ -356,15 +377,25 @@ function benchmark(text, time) {
         // This simple javascript code is based on 
         // https://github.com/jquery/jquery-ui/blob/master/ui/mouse.js
         mouseMove: function(event) {
+			// cross browser support
+			event = event || window.event;
+
+		
             // Iframe mouseup check - mouseup occurred in another document
-            if ( !event.which ) {
+            if ( !eventWhich(event) ) {
                 return this.mouseUp( event );
             }
     
             // drag functionality
             if (this.mouseStarted) {
                 this.mouseDrag(event);
-                return event.preventDefault();
+				if (event.preventDefault) {
+					return event.preventDefault();
+				} else {
+					event.returnValue = false;
+				}
+    
+                return false;
             }
     
             // within no action circle
@@ -380,6 +411,9 @@ function benchmark(text, time) {
         // This simple javascript code is based on
         // https://github.com/jquery/jquery-ui/blob/master/ui/mouse.js
         mouseUp: function(event) {
+			// cross browser support
+			event = event || window.event;
+
             removeEvent(document.body, 'mousemove', this.mouseMoveDelegate);
             removeEvent(document.body, 'mouseup', this.mouseUpDelegate);
     
@@ -395,8 +429,13 @@ function benchmark(text, time) {
         // This simple javascript code is roughly based on 
         // https://github.com/jquery/jquery-ui/blob/master/ui/mouse.js
         mouseDistanceMet: function(event) {
-            var x = Math.abs(this.mouseDownEvent.pageX - event.pageX),
-                y = Math.abs(this.mouseDownEvent.pageY - event.pageY);
+            var x = Math.abs(pageX(this.mouseDownEvent) - pageX(event)),
+                y = Math.abs(pageY(this.mouseDownEvent) - pageY(event));
+				
+			DEBUG && log(this.mouseDownEvent);
+			DEBUG && log(pageX(this.mouseDownEvent));
+			DEBUG && log('x: ' + x + ' y: ' + y);
+
             return (Math.sqrt(x*x + y*y)) >= this.options.distance;
         },
 
@@ -408,7 +447,7 @@ function benchmark(text, time) {
     
     function getTableColumn(table, event, defaultColumn) {
         var cells = table.rows[0].cells,
-            ex = event.pageX;
+            ex = pageX(event);
         for (var i = 0; i < cells.length; i++) {
             var tx = getOffsetRect(cells[i]).left;
             if (tx <= ex && ex <= tx + cells[i].offsetWidth) {
@@ -420,7 +459,7 @@ function benchmark(text, time) {
     }
     
     function copyStyles(el) {
-        var cs = window.getComputedStyle(el,null),
+        var cs = window.getComputedStyle?window.getComputedStyle(el,null):el.currentStyle,
             css = '';
         for (var i=0; i<cs.length; i++) {
             var style = cs[i];
@@ -452,7 +491,37 @@ function benchmark(text, time) {
       } else
         obj.removeEventListener( type, fn, false );
     }
-    
+	
+	// Cross browser event data based on
+	// jquery implementation
+	function eventWhich(event) {
+		var which = event.which;
+		
+		return (typeof which == 'undefined') ? event.button : which;
+	}
+	function pageX (event) {
+		var pageX = event.pageX;
+		
+		if (typeof pageX == 'undefined') {
+			pageX = event.clientX + ( document.documentElement && document.documentElement.scrollLeft || document.body && document.body.scrollLeft || 0 ) - ( document.documentElement && document.documentElement.clientLeft || document.body && document.body.clientLeft || 0 );
+		}
+	
+		return pageX;
+	}
+	function pageY (event) {
+		var pageY = event.pageY;
+		
+		if (typeof pageY == 'undefined') {
+			pageY = event.clientX + ( document.documentElement && document.documentElement.scrollTop || document.body && document.body.scrollTop || 0 ) - ( document.documentElement && document.documentElement.clientTop || document.body && document.body.clientTop || 0 );
+		}
+		
+		return pageY;
+	}
+	
+	function eventTarget (event) {
+		return event.target || event.srcElement;
+	}
+
     // http://javascript.info/tutorial/coordinates
     function getOffsetRect(elem) {
         // (1)
@@ -487,12 +556,12 @@ function benchmark(text, time) {
           row.insertBefore(x, row.cells[end]);
         }
     }
-		
+
 	// http://stackoverflow.com/questions/7624920/number-sign-in-javascript
 	function sign (x) {
         return typeof x == 'number' ? x ? x < 0 ? -1 : 1 : x === x ? 0 : NaN : NaN;
     }
-    
+
     // based on
     // https://github.com/tristen/tablesort/blob/gh-pages/src/tablesort.js
     // line 297 - 301
