@@ -1,22 +1,4 @@
 ;
-if (typeof DEBUG === "undefined") DEBUG = true;
-
-// debugging utils
-function log() {
-    var a = arguments[0],
-                    s = arguments.length > 1 ? Array.prototype.slice.call(arguments) : a;
-
-    if (typeof console !== "undefined" && typeof console.log !== "undefined") {
-        console[/error/i.test(a) ? 'error' : /warn/i.test(a) ? 'warn' : 'log'](s);
-    } else {
-        alert(s);
-    }
-}
-
-function benchmark(text, time) {
-    log(text + " (" + (new Date().getTime() - time.getTime()) + "ms)");
-}
-
 (function () {
     "use strict";
   
@@ -27,8 +9,6 @@ function benchmark(text, time) {
     // http://www.danvk.org/wp/dragtable/
     function TableDrag(table, options) {
         if (table && table.tagName !== 'TABLE') {
-            DEBUG && log('ERROR: DOM element/input is not a table!');
-            console.log('ERROR: DOM element/input is not a table!');
             return '';
         }
         
@@ -98,23 +78,6 @@ function benchmark(text, time) {
                 initialColumn = eventTarget(event).cellIndex,
 				ie = browserDetection() == 'ie' ? true : false;
             
-            DEBUG && log('style vs rendering diffLeft: ' + styleLeft + ' vs ' + renderLeft + ' ' +  diffLeft);
-            DEBUG && log('style vs rendering diffTop: ' + styleTop + ' vs ' + renderTop + ' ' +  diffTop);             
-            DEBUG && log('borderCollapse: ' + borderCollapse);                            
-            DEBUG && log('borderSpacing: ' + borderSpacing);
-            DEBUG && log('tableBorderLeftWidth: ' + tableBorderLeftWidth);
-            DEBUG && log('tableBorderTopWidth: ' + tableBorderTopWidth);
-			DEBUG && log('borderLeftWidth: ' + table.style.borderLeftWidth);
-			DEBUG && log('table.clientLeft: ' + table.clientLeft);
-            DEBUG && log('padding: ' + padding);
-            DEBUG && log('backgroundColor: ' + backgroundColor);
-            DEBUG && log('table.rows[0].offsetHeight: ' + table.rows[0].offsetHeight);
-            DEBUG && log('tablePosition.left: ' + tablePosition.left + ' tablePosition.top: ' + tablePosition.top);
-            DEBUG && log('zIndex: ' + zIndex);
-            DEBUG && log('last column: ' + this.lc + ' initial column: ' + initialColumn);
-			DEBUG && log('ie: ' + ie);
-			DEBUG && log('table.offsetWidth: ' + table.offsetWidth + ' table.clientWidth: ' + table.clientWidth);
-
             // last column, initial column
             this.lc = this.ic = initialColumn;            
             // permutation memory
@@ -126,9 +89,7 @@ function benchmark(text, time) {
             var back = document.createElement("div");
             back.id = 'drag-base';
             back.style.position = 'absolute';
-            //back.style.left = tablePosition.left - (diffLeft ? 0 : renderLeft) + 'px';
-            //back.style.top = tablePosition.top - (diffTop ? 0 : renderTop) + 'px';
-            
+
             if (borderCollapse=='collapse') {
 				if (ie) {
 					back.style.left = tablePosition.left + styleLeft + 'px';
@@ -158,9 +119,6 @@ function benchmark(text, time) {
             back.style.backgroundColor = backgroundColor;
             back.style.zIndex = zIndex;
 
-			// DEBUGGING
-			//back.style.backgroundColor = 'green';
-
             // overlay - front
             for (var i = 0; i < this.nc; i++) {
                 this.pm[i] = i;
@@ -179,20 +137,6 @@ function benchmark(text, time) {
                     celloffsetHeight = cell.offsetHeight,
                     cellclientHeight = cell.clientHeight;
                 
-                DEBUG && log('cell.style.border: ' + cell.style.border);                
-                DEBUG && log('borderLeftWidth: ' + borderLeftWidth);
-                DEBUG && log('borderRightWidth: ' + borderRightWidth);
-                DEBUG && log('borderTopWidth: ' + borderTopWidth);
-                DEBUG && log('borderBottomWidth: ' + borderBottomWidth);
-				DEBUG && log('paddingTop: ' + paddingTop);
-                DEBUG && log('paddingBottom: ' + paddingBottom);
-                DEBUG && log('cellClientLeft: ' + cellClientLeft);
-                DEBUG && log('cellClientTop: ' + cellClientTop);
-                DEBUG && log('cellHeight: ' + cellHeight);  
-                DEBUG && log('celloffsetHeight: ' + celloffsetHeight);  
-                DEBUG && log('cellclientHeight: ' + cellclientHeight);
-                DEBUG && log('cellPosition.left: ' + cellPosition.left + ' cellPosition.top: ' + cellPosition.top);
-                
                 var middle = document.createElement("div");
                 middle.style.width = (diffLeft ? (cell.clientWidth + borderLeftWidth + borderRightWidth) : cell.offsetWidth) + 'px';
                 middle.style.height = cell.offsetHeight + 'px';
@@ -206,10 +150,6 @@ function benchmark(text, time) {
                 middle.style.top = cellPosition.top - numericProperty(back.style.top) - (diffTop ? renderTop : 0) + 'px';   
                 middle.style.zIndex = zIndex + 1;
 
-				// DEBUGGING
-				//middle.style.top = cellPosition.top - tablePosition.top - table.clientTop + 90 - i*5 + 'px';
-				//middle.style.backgroundColor = "orange";
-
                 var front = document.createElement("div");
                 front.style.cssText = copyStyles(cell);
                 // doesnt work properly with firefox
@@ -222,10 +162,6 @@ function benchmark(text, time) {
                 front.style.zIndex = zIndex + 2;
                 front.style.height = cell.clientHeight - paddingTop - paddingBottom + 'px';
                 front.innerHTML = cell.innerHTML;
-
-				// DEBUGGING
-                //front.style.top = 50 + 'px';
-				//if (i == initialColumn) front.style.top = numericProperty(middle.style.top) + 10 + 'px';
 
                 // drag element
                 if (i == initialColumn) this.de = front;
@@ -250,11 +186,6 @@ function benchmark(text, time) {
                 eventColumn = getTableColumn(table, event, lastColumn),
                 diffLeft = this.diffLeft;
 				
-			DEBUG && log(event);
-			DEBUG && log(this.mouseDownEvent);
-			DEBUG && log('numericProperty(this.de.style.left): ' + numericProperty(this.de.style.left));
-			DEBUG && log('distance: ' + distance);
-            
             this.de.style.left = numericProperty(this.de.style.left) + distance + 'px';
  
             if (eventColumn != lastColumn) { // bubble
@@ -263,11 +194,6 @@ function benchmark(text, time) {
                     borderSpacing = borderCollapse=='collapse' ? 0 : numericProperty(elementStyleProperty(table,'border-spacing')),
                     direction = sign(eventColumn - lastColumn);
                 
-                DEBUG && log('borderCollapse: ' + borderCollapse);
-                DEBUG && log('borderSpacing: ' + borderSpacing);
-                DEBUG && log('direction: ' + direction);
-                DEBUG && log('last column: ' + lastColumn + ' initial column: ' + this.ic + ' event column: ' + eventColumn);
-
 				for (var i = lastColumn; i != eventColumn; i+=direction) {
                     var start = i,
                         end = start + direction,
@@ -276,17 +202,11 @@ function benchmark(text, time) {
                         movinglayer = this.overlay.childNodes[permutationMemory[start]],
 						ie = browserDetection() == 'ie' ? true : false;
                     
-                    DEBUG && log('start: ' + start + ' direction: ' + direction + ' end: ' + end);
-
                     if (direction<0) { // to the left
                         var borderLeftWidth = numericProperty(elementStyleProperty(layer.childNodes[0],'border-left-width')),
                             borderLeftWidth = borderCollapse=='separate' ? 0 : borderLeftWidth,
                             left = numericProperty(layer.style.left),
                             width = numericProperty(movinglayer.style.width);
-                        
-                        DEBUG && log('borderLeftWidth: ' + borderLeftWidth);
-                        DEBUG && log('left: ' + left);
-                        DEBUG && log('width: ' + width);
                         
                         movinglayer.style.left = left+'px';
 						if (ie) {
@@ -300,10 +220,6 @@ function benchmark(text, time) {
                             left = numericProperty(movinglayer.style.left),
                             width = numericProperty(layer.style.width);
                         
-                        DEBUG && log('borderLeftWidth: ' + borderLeftWidth);
-                        DEBUG && log('left: ' + left);
-                        DEBUG && log('width: ' + width);
-                        
                         layer.style.left = left+'px';
 						if (ie) {
 							movinglayer.style.left = left+width+borderSpacing +'px';
@@ -314,12 +230,10 @@ function benchmark(text, time) {
             
                     // shift
                     this.pm.move(start, end);
-                    DEBUG && log(this.pm);
                     // set new column
                     this.lc = end;
 				}
             }
-            DEBUG && log('save event');
 
             this.mouseDownEvent = event;
 			this.mouseDownEvent1 = pageX(event);
@@ -330,7 +244,6 @@ function benchmark(text, time) {
             
             // move column if neccessary
             var col = getTableColumn(table, event, this.lc);
-            DEBUG && log('last column: ' + this.lc + ' initial column: ' + this.ic + ' event column: ' + col);
             if (col != this.ic)
                 moveTableColumn(table,this.ic,col);
             
@@ -348,7 +261,6 @@ function benchmark(text, time) {
         init: function (table, options) {
             // check empty table
             if (!(table && table.rows && table.rows.length > 0)) {
-                DEBUG && log('WARNING: Empty table.');
                 return true;
             }
 
@@ -359,9 +271,6 @@ function benchmark(text, time) {
             // to keep context
             var that = this;
 
-            DEBUG && log('Number of cells: ' + this.nc);
-            DEBUG && log('Number of rows: ' + table.rows.length + ' (including header row)');
-            
             // attach handlers to each cell of the header row.
             for (var i = 0; i < this.nc; i++) {
                 var cell = this.hr.cells[i];
@@ -379,7 +288,6 @@ function benchmark(text, time) {
         // This simple javascript code is based on 
         // https://github.com/jquery/jquery-ui/blob/master/ui/mouse.js
         mouseDown: function (event) {
-			DEBUG && log(event);
 			// cross browser support
 			event = event || window.event;
 
@@ -433,7 +341,6 @@ function benchmark(text, time) {
         // This simple javascript code is based on 
         // https://github.com/jquery/jquery-ui/blob/master/ui/mouse.js
         mouseMove: function(event) {
-			DEBUG && log(event);
 			// cross browser support
 			event = event || window.event;
 
@@ -489,10 +396,6 @@ function benchmark(text, time) {
             var x = Math.abs(pageX(this.mouseDownEvent) - pageX(event)),
                 y = Math.abs(pageY(this.mouseDownEvent) - pageY(event));
 				
-			DEBUG && log(this.mouseDownEvent);
-			DEBUG && log(pageX(this.mouseDownEvent));
-			DEBUG && log('x: ' + x + ' y: ' + y);
-
             return (Math.sqrt(x*x + y*y)) >= this.options.distance;
         },
 
@@ -558,8 +461,6 @@ function benchmark(text, time) {
 	}
 	function pageX (event) {
 		var pageX = event.pageX;
-		
-		DEBUG && log(event.clientX + ' ' + document.documentElement.scrollLeft + ' ' + document.body.scrollLeft + ' ' + document.documentElement.clientLeft + ' ' + document.body.clientLeft);
 		
 		if (typeof pageX == 'undefined') {
 			pageX = event.clientX + ( document.documentElement && document.documentElement.scrollLeft || document.body && document.body.scrollLeft || 0 ) - ( document.documentElement && document.documentElement.clientLeft || document.body && document.body.clientLeft || 0 );
