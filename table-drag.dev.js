@@ -55,6 +55,24 @@ function benchmark(text, time) {
         function numericProperty (prop) {
             return (typeof prop == 'undefined' || prop == '' || prop == null) ? 0 : parseInt(prop);
         };
+		
+		function browserDetection () {
+			var userAg = navigator.userAgent;
+			
+			if (userAg.indexOf("Chrome") != -1) {
+				return 'ch';
+			} else if (userAg.indexOf("Firefox")!=-1) {
+				return 'ff';
+			} else if (userAg.indexOf("Opera")!=-1) {
+				return 'op';
+			} else if (userAg.indexOf("MSIE")!=-1) {
+				return 'ie';
+			} else if (userAg.indexOf("Safari")!=-1) {
+				return 'sa';
+			} else {
+				return 'ub';
+			}
+		};
         
         // The overriden placeholder methods
         this.mouseStart = function(event) {
@@ -77,7 +95,8 @@ function benchmark(text, time) {
                 zIndex = zIndex ? zIndex+1 : 1,
                 tablePosition = getOffsetRect(table),
                 tableWidth = diffLeft ? table.offsetWidth : table.clientWidth,
-                initialColumn = eventTarget(event).cellIndex;
+                initialColumn = eventTarget(event).cellIndex,
+				ie = browserDetection() == 'ie' ? true : false;
             
             DEBUG && log('style vs rendering diffLeft: ' + styleLeft + ' vs ' + renderLeft + ' ' +  diffLeft);
             DEBUG && log('style vs rendering diffTop: ' + styleTop + ' vs ' + renderTop + ' ' +  diffTop);             
@@ -93,6 +112,8 @@ function benchmark(text, time) {
             DEBUG && log('tablePosition.left: ' + tablePosition.left + ' tablePosition.top: ' + tablePosition.top);
             DEBUG && log('zIndex: ' + zIndex);
             DEBUG && log('last column: ' + this.lc + ' initial column: ' + initialColumn);
+			DEBUG && log('ie: ' + ie);
+			DEBUG && log('table.offsetWidth: ' + table.offsetWidth + ' table.clientWidth: ' + table.clientWidth);
 
             // last column, initial column
             this.lc = this.ic = initialColumn;            
@@ -109,17 +130,30 @@ function benchmark(text, time) {
             //back.style.top = tablePosition.top - (diffTop ? 0 : renderTop) + 'px';
             
             if (borderCollapse=='collapse') {
-                back.style.left = tablePosition.left + (diffLeft ? 0 : renderLeft) + 'px';
+				if (ie) {
+					back.style.left = tablePosition.left + styleLeft + 'px';
+				} else {
+					back.style.left = tablePosition.left + (diffLeft ? 0 : renderLeft) + 'px';
+				}
             } else {
                 back.style.left = tablePosition.left + renderLeft + 'px';
             }
             
             if (borderCollapse=='collapse') {
-                back.style.top = tablePosition.top + (diffTop ? 0 : renderTop) + 'px';
+				if (ie) {
+					back.style.top = tablePosition.top + styleTop + 'px';
+				} else {
+					back.style.top = tablePosition.top + (diffTop ? 0 : renderTop) + 'px';
+				}
             } else {
                 back.style.top = getOffsetRect(table.rows[0]).top + 'px';
             }
-            back.style.width = tableWidth + 'px';
+			
+			if (ie) {
+				back.style.width = tableWidth - 2*styleLeft + 'px';
+			} else {
+				back.style.width = tableWidth + 'px';
+			}
             back.style.height = table.rows[0].offsetHeight+'px';
             back.style.backgroundColor = backgroundColor;
             back.style.zIndex = zIndex;
@@ -164,7 +198,11 @@ function benchmark(text, time) {
                 middle.style.height = cell.offsetHeight + 'px';
                 middle.style.backgroundColor = "#FFFFFF";
                 middle.style.position = 'absolute';
-                middle.style.left = cellPosition.left - tablePosition.left - table.clientLeft + 'px';
+				if (ie) {
+					middle.style.left = cellPosition.left - tablePosition.left - styleLeft + 'px';
+				} else {
+					middle.style.left = cellPosition.left - tablePosition.left - table.clientLeft + 'px';
+				}
                 middle.style.top = cellPosition.top - numericProperty(back.style.top) - (diffTop ? renderTop : 0) + 'px';   
                 middle.style.zIndex = zIndex + 1;
 
@@ -179,7 +217,6 @@ function benchmark(text, time) {
                 front.style.position = 'absolute';
                 front.style.left = 0 + 'px';
                 if (i == initialColumn) front.style.left = middle.style.left;
-                if (i == initialColumn) front.style.left = cellPosition.left - tablePosition.left - table.clientLeft + 'px';
 				front.style.top = 0 + 'px';
                 if (i == initialColumn) front.style.top = middle.style.top;
                 front.style.zIndex = zIndex + 2;
@@ -208,9 +245,15 @@ function benchmark(text, time) {
         };        
         this.mouseDrag = function(event) {
             var distance = pageX(event)-pageX(this.mouseDownEvent),
+				distance = pageX(event)-this.mouseDownEvent1,
                 lastColumn = this.lc,
                 eventColumn = getTableColumn(table, event, lastColumn),
                 diffLeft = this.diffLeft;
+				
+			DEBUG && log(event);
+			DEBUG && log(this.mouseDownEvent);
+			DEBUG && log('numericProperty(this.de.style.left): ' + numericProperty(this.de.style.left));
+			DEBUG && log('distance: ' + distance);
             
             this.de.style.left = numericProperty(this.de.style.left) + distance + 'px';
  
@@ -230,7 +273,8 @@ function benchmark(text, time) {
                         end = start + direction,
                         permutationMemory = this.pm,
                         layer = this.overlay.childNodes[permutationMemory[end]],
-                        movinglayer = this.overlay.childNodes[permutationMemory[start]];
+                        movinglayer = this.overlay.childNodes[permutationMemory[start]],
+						ie = browserDetection() == 'ie' ? true : false;
                     
                     DEBUG && log('start: ' + start + ' direction: ' + direction + ' end: ' + end);
 
@@ -245,7 +289,11 @@ function benchmark(text, time) {
                         DEBUG && log('width: ' + width);
                         
                         movinglayer.style.left = left+'px';
-                        layer.style.left = left+width+borderSpacing - (diffLeft ? borderLeftWidth : 0) +'px';
+						if (ie) {
+							layer.style.left = left+width+borderSpacing +'px';
+						} else {
+							layer.style.left = left+width+borderSpacing - (diffLeft ? borderLeftWidth : 0) +'px';
+						}
                     } else { // to the right
                         var borderLeftWidth = numericProperty(elementStyleProperty(this.de,'border-left-width')),
                             borderLeftWidth = borderCollapse=='separate' ? 0 : borderLeftWidth,
@@ -257,7 +305,11 @@ function benchmark(text, time) {
                         DEBUG && log('width: ' + width);
                         
                         layer.style.left = left+'px';
-                        movinglayer.style.left = left+width+borderSpacing - (diffLeft ? borderLeftWidth : 0) +'px';
+						if (ie) {
+							movinglayer.style.left = left+width+borderSpacing +'px';
+						} else {
+							movinglayer.style.left = left+width+borderSpacing - (diffLeft ? borderLeftWidth : 0) +'px';
+						}
                     } 
             
                     // shift
@@ -267,18 +319,20 @@ function benchmark(text, time) {
                     this.lc = end;
 				}
             }
-            
+            DEBUG && log('save event');
+
             this.mouseDownEvent = event;
+			this.mouseDownEvent1 = pageX(event);
         };
         this.mouseStop = function(event) {
             // remove overlay
-            document.body.removeChild(this.overlay);
+            //document.body.removeChild(this.overlay);
             
             // move column if neccessary
-            var col = getTableColumn(table, event, this.lc);
+            //var col = getTableColumn(table, event, this.lc);
             //DEBUG && log('last column: ' + this.lc + ' initial column: ' + this.ic + ' event column: ' + col);
-            if (col != this.ic)
-                moveTableColumn(table,this.ic,col);
+            //if (col != this.ic)
+                //moveTableColumn(table,this.ic,col);
             
             // restore mouse cursor
             document.body.style.cursor = this.cur;
@@ -325,6 +379,7 @@ function benchmark(text, time) {
         // This simple javascript code is based on 
         // https://github.com/jquery/jquery-ui/blob/master/ui/mouse.js
         mouseDown: function (event) {
+			DEBUG && log(event);
 			// cross browser support
 			event = event || window.event;
 
@@ -333,6 +388,7 @@ function benchmark(text, time) {
 
             // to compute the first (and the following) resize move correctly
             this.mouseDownEvent = event;
+			this.mouseDownEvent1 = pageX(event);
 
             // only left mouse button down is of interest
 			if (eventWhich(event)!==1) {
@@ -377,6 +433,7 @@ function benchmark(text, time) {
         // This simple javascript code is based on 
         // https://github.com/jquery/jquery-ui/blob/master/ui/mouse.js
         mouseMove: function(event) {
+			DEBUG && log(event);
 			// cross browser support
 			event = event || window.event;
 
@@ -501,6 +558,8 @@ function benchmark(text, time) {
 	}
 	function pageX (event) {
 		var pageX = event.pageX;
+		
+		DEBUG && log(event.clientX + ' ' + document.documentElement.scrollLeft + ' ' + document.body.scrollLeft + ' ' + document.documentElement.clientLeft + ' ' + document.body.clientLeft);
 		
 		if (typeof pageX == 'undefined') {
 			pageX = event.clientX + ( document.documentElement && document.documentElement.scrollLeft || document.body && document.body.scrollLeft || 0 ) - ( document.documentElement && document.documentElement.clientLeft || document.body && document.body.clientLeft || 0 );
