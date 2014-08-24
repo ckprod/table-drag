@@ -56,106 +56,56 @@ function benchmark(text, time) {
             return (typeof prop == 'undefined' || prop == '' || prop == null) ? 0 : parseInt(prop);
         };
 		
-		function browserDetection () {
-			var userAg = navigator.userAgent;
-			
-			if (userAg.indexOf("Chrome") != -1) {
-				return 'ch';
-			} else if (userAg.indexOf("Firefox")!=-1) {
-				return 'ff';
-			} else if (userAg.indexOf("Opera")!=-1) {
-				return 'op';
-			} else if (userAg.indexOf("MSIE")!=-1) {
-				return 'ie';
-			} else if (userAg.indexOf("Safari")!=-1) {
-				return 'sa';
-			} else {
-				return 'ub';
-			}
-		};
+        function tridentDetection () {
+            return (navigator.userAgent.indexOf("Trident")!=-1) ? true : false;
+        };
+        
+        function borderCollapseDetection () {
+            return elementStyleProperty(table,'border-collapse')=='collapse' ? true : false;
+        }
         
         // The overriden placeholder methods
         this.mouseStart = function(event) {
-            var borderCollapse = elementStyleProperty(table,'border-collapse'),
-                styleLeft = numericProperty(elementStyleProperty(table,'border-left-width')),
-                renderLeft = table.clientLeft,
-                styleTop = numericProperty(elementStyleProperty(table,'border-top-width')),
-                renderTop = table.clientTop,
-                // diff: false ... rendered border width equals original border width
-                //       true ... rendered border width differs original border width
-                diffLeft = borderCollapse=='collapse' ? (renderLeft-styleLeft) : 0,
-                diffTop = borderCollapse=='collapse' ? (renderTop-styleTop) : 0,
-                borderSpacing = borderCollapse=='collapse' ? 0 : numericProperty(elementStyleProperty(table,'border-spacing')),
-                tableBorderLeftWidth = diffLeft ? 0 : table.clientLeft,
-                tableBorderTopWidth = diffLeft ? 0 : table.clientTop,
-                padding = elementStyleProperty(table,'padding'),
-                backgroundColor = elementStyleProperty(table,'background-color'),
-                tableStyle = table.style,
-                zIndex = numericProperty(tableStyle.zIndex),
-                zIndex = zIndex ? zIndex+1 : 1,
-                tablePosition = getOffsetRect(table),
-                tableWidth = diffLeft ? table.offsetWidth : table.clientWidth,
-                initialColumn = eventTarget(event).cellIndex,
-				ie = browserDetection() == 'ie' ? true : false;
+			var trident = tridentDetection(),
+				borderCollapse = borderCollapseDetection(),
+				tablePosition = getOffsetRect(table),
+				row = table.rows[0],
+				rowPosition = getOffsetRect(row),
+				rowOffsetHeight = row.offsetHeight,
+				tableClientLeft = trident ? (rowPosition.left-tablePosition.left) : table.clientLeft,
+				tableClientTop = trident ? (rowPosition.top-tablePosition.top) : table.clientTop;
             
-            DEBUG && log('style vs rendering diffLeft: ' + styleLeft + ' vs ' + renderLeft + ' ' +  diffLeft);
-            DEBUG && log('style vs rendering diffTop: ' + styleTop + ' vs ' + renderTop + ' ' +  diffTop);             
-            DEBUG && log('borderCollapse: ' + borderCollapse);                            
-            DEBUG && log('borderSpacing: ' + borderSpacing);
-            DEBUG && log('tableBorderLeftWidth: ' + tableBorderLeftWidth);
-            DEBUG && log('tableBorderTopWidth: ' + tableBorderTopWidth);
-			DEBUG && log('borderLeftWidth: ' + table.style.borderLeftWidth);
-			DEBUG && log('table.clientLeft: ' + table.clientLeft);
-            DEBUG && log('padding: ' + padding);
-            DEBUG && log('backgroundColor: ' + backgroundColor);
-            DEBUG && log('table.rows[0].offsetHeight: ' + table.rows[0].offsetHeight);
+            var backLeft = borderCollapse ? tablePosition.left : (tablePosition.left + tableClientLeft),
+                backTop = borderCollapse ? tablePosition.top : (rowPosition.top),
+                backWidth = borderCollapse ? table.offsetWidth : table.offsetWidth - 2*tableClientLeft,
+                backHeight = table.rows[0].offsetHeight;
+            
+            DEBUG && log('trident: ' + trident + ' borderCollapse: ' + borderCollapse);
             DEBUG && log('tablePosition.left: ' + tablePosition.left + ' tablePosition.top: ' + tablePosition.top);
-            DEBUG && log('zIndex: ' + zIndex);
-            DEBUG && log('last column: ' + this.lc + ' initial column: ' + initialColumn);
-			DEBUG && log('ie: ' + ie);
-			DEBUG && log('table.offsetWidth: ' + table.offsetWidth + ' table.clientWidth: ' + table.clientWidth);
+            DEBUG && log('rowPosition.left: ' + rowPosition.left + ' rowPosition.top: ' + rowPosition.top);
+            DEBUG && log('rowOffsetHeight: ' + rowOffsetHeight);
+            DEBUG && log('tableClientLeft: ' + tableClientLeft + ' tableClientTop: ' + tableClientTop);
+            DEBUG && log('backLeft: ' + backLeft + ' backTop: ' + backTop + ' backWidth: ' + backWidth + ' backHeight: ' + backHeight);
+            
+            var zIndex = numericProperty(table.style.zIndex),
+                zIndex = zIndex ? zIndex+1 : 1,
+                initialColumn = eventTarget(event).cellIndex,
+                backgroundColor = elementStyleProperty(table,'background-color');
 
+            DEBUG && log('zIndex: ' + zIndex + ' initialColumn: ' + initialColumn);
+            
             // last column, initial column
             this.lc = this.ic = initialColumn;            
-            // permutation memory
-            this.pm = new Array(this.nhc);
-            // rendered vs original style
-            this.diffLeft = diffLeft;
             
             // overlay - back
             var back = document.createElement("div");
-            back.id = 'drag-base';
-            back.style.position = 'absolute';
-            //back.style.left = tablePosition.left - (diffLeft ? 0 : renderLeft) + 'px';
-            //back.style.top = tablePosition.top - (diffTop ? 0 : renderTop) + 'px';
-            
-            if (borderCollapse=='collapse') {
-				if (ie) {
-					back.style.left = tablePosition.left + styleLeft + 'px';
-				} else {
-					back.style.left = tablePosition.left + (diffLeft ? 0 : renderLeft) + 'px';
-				}
-            } else {
-                back.style.left = tablePosition.left + renderLeft + 'px';
-            }
-            
-            if (borderCollapse=='collapse') {
-				if (ie) {
-					back.style.top = tablePosition.top + styleTop + 'px';
-				} else {
-					back.style.top = tablePosition.top + (diffTop ? 0 : renderTop) + 'px';
-				}
-            } else {
-                back.style.top = getOffsetRect(table.rows[0]).top + 'px';
-            }
-			
-			if (ie) {
-				back.style.width = tableWidth - 2*styleLeft + 'px';
-			} else {
-				back.style.width = tableWidth + 'px';
-			}
-            back.style.height = table.rows[0].offsetHeight+'px';
-            back.style.backgroundColor = backgroundColor;
+    back.style.position = 'absolute';
+    back.style.left = backLeft + 'px';
+    back.style.top = backTop + 'px';
+    back.style.width = backWidth + 'px';
+    back.style.height = backHeight + 'px';
+    back.style.backgroundColor = backgroundColor;
+            //back.style.opacity =  0.4;
             back.style.zIndex = zIndex;
 
 			// DEBUGGING
@@ -163,74 +113,73 @@ function benchmark(text, time) {
 
             // overlay - front
             for (var i = 0; i < this.nc; i++) {
-                this.pm[i] = i;
-                
-                var cell = this.hr.cells[i],
-                    borderLeftWidth = numericProperty(elementStyleProperty(cell,'border-left-width')),
-                    borderRightWidth = numericProperty(elementStyleProperty(cell,'border-right-width')),
-                    borderTopWidth = numericProperty(elementStyleProperty(cell,'border-top-width')),
-                    borderBottomWidth = numericProperty(elementStyleProperty(cell,'border-bottom-width')),
-                    paddingTop = numericProperty(elementStyleProperty(cell, 'padding-top')),
-                    paddingBottom = numericProperty(elementStyleProperty(cell, 'padding-bottom')),
-                    cellClientLeft = cell.clientLeft,
-                    cellClientTop = cell.clientTop,
-                    cellPosition = getOffsetRect(cell),
-                    cellHeight = numericProperty(elementStyleProperty(cell,'height')),
-                    celloffsetHeight = cell.offsetHeight,
-                    cellclientHeight = cell.clientHeight;
-                
-                DEBUG && log('cell.style.border: ' + cell.style.border);                
-                DEBUG && log('borderLeftWidth: ' + borderLeftWidth);
-                DEBUG && log('borderRightWidth: ' + borderRightWidth);
-                DEBUG && log('borderTopWidth: ' + borderTopWidth);
-                DEBUG && log('borderBottomWidth: ' + borderBottomWidth);
-				DEBUG && log('paddingTop: ' + paddingTop);
-                DEBUG && log('paddingBottom: ' + paddingBottom);
-                DEBUG && log('cellClientLeft: ' + cellClientLeft);
-                DEBUG && log('cellClientTop: ' + cellClientTop);
-                DEBUG && log('cellHeight: ' + cellHeight);  
-                DEBUG && log('celloffsetHeight: ' + celloffsetHeight);  
-                DEBUG && log('cellclientHeight: ' + cellclientHeight);
-                DEBUG && log('cellPosition.left: ' + cellPosition.left + ' cellPosition.top: ' + cellPosition.top);
-                
-                var middle = document.createElement("div");
-                middle.style.width = (diffLeft ? (cell.clientWidth + borderLeftWidth + borderRightWidth) : cell.offsetWidth) + 'px';
-                middle.style.height = cell.offsetHeight + 'px';
-                middle.style.backgroundColor = "#FFFFFF";
-                middle.style.position = 'absolute';
-				if (ie) {
-					middle.style.left = cellPosition.left - tablePosition.left - styleLeft + 'px';
-				} else {
-					middle.style.left = cellPosition.left - tablePosition.left - table.clientLeft + 'px';
-				}
-                middle.style.top = cellPosition.top - numericProperty(back.style.top) - (diffTop ? renderTop : 0) + 'px';   
-                middle.style.zIndex = zIndex + 1;
+        var cell = row.cells[i],
+            cellPosition = getOffsetRect(cell),
+            offsetWidth = cell.offsetWidth,
+            offsetHeight = cell.offsetHeight,
+            clientWidth = cell.clientWidth,
+            clientHeight = cell.clientHeight,
+            clientLeft = cell.clientLeft,
+            clientTop = cell.clientTop,
+            clientRight = offsetWidth-clientWidth-clientLeft,
+            clientBottom = offsetHeight-clientHeight-clientTop,
+            paddingTop = numericProperty(elementStyleProperty(cell,'padding-top')),
+            paddingBottom = numericProperty(elementStyleProperty(cell,'padding-bottom')),
+            computedCellHeight = cell.getBoundingClientRect().height-clientTop-clientBottom-paddingTop-paddingBottom;
 
+        var border = borderCollapse ? (clientRight + clientLeft) : clientLeft;
+
+        var elementBaseLeft = borderCollapse ? (cellPosition.left - backLeft - tableClientLeft) : cellPosition.left - backLeft,
+            elementBaseTop = borderCollapse ? (cellPosition.top - backTop - tableClientTop) : cellPosition.top - backTop,
+            elementBaseWidth = clientWidth + 2*border,
+            elementBaseHeight = rowOffsetHeight;
+
+            DEBUG && log('---------------------------------');
+            DEBUG && log('cellPosition.left: ' + cellPosition.left + ' cellPosition.top: ' + cellPosition.top);
+            DEBUG && log('elementBaseLeft: ' + elementBaseLeft + ' elementBaseTop: ' + elementBaseTop + ' elementBaseWidth: ' + elementBaseWidth + ' elementBaseHeight: ' + elementBaseHeight);
+            DEBUG && log('computedCellHeight: ' + computedCellHeight + ' border: ' + border);
+                
+        var element = document.createElement("div");
+        element.style.cssText = copyStyles(cell);
+        element.style.position = 'absolute';
+        element.style.left = 0;
+        element.style.top = 0;
+        element.style.height = computedCellHeight + 'px';
+        element.style.borderLeftWidth = border+'px';
+        //element.style.borderColor = 'rgb(120,120,120)';
+        element.style.borderTopWidth = border+'px';
+        element.style.borderRightWidth = border+'px';
+        element.style.borderBottomWidth = border+'px';
+        element.innerHTML = cell.innerHTML;
+        element.style.zIndex = zIndex + 2;
+            
+        if (i == initialColumn) element.style.left = elementBaseLeft + 'px';
+        if (i == initialColumn) element.style.top = elementBaseTop + 'px'; 
+                
 				// DEBUGGING
 				//middle.style.top = cellPosition.top - tablePosition.top - table.clientTop + 90 - i*5 + 'px';
 				//middle.style.backgroundColor = "orange";
 
-                var front = document.createElement("div");
-                front.style.cssText = copyStyles(cell);
-                // doesnt work properly with firefox
-                //front.style.cssText = window.getComputedStyle(cell, "").cssText;
-                front.style.position = 'absolute';
-                front.style.left = 0 + 'px';
-                if (i == initialColumn) front.style.left = middle.style.left;
-				front.style.top = 0 + 'px';
-                if (i == initialColumn) front.style.top = middle.style.top;
-                front.style.zIndex = zIndex + 2;
-                front.style.height = cell.clientHeight - paddingTop - paddingBottom + 'px';
-                front.innerHTML = cell.innerHTML;
+
+        var elementBase = document.createElement("div");
+        elementBase.style.position = 'absolute';
+        elementBase.style.left = elementBaseLeft + 'px';
+        elementBase.style.top = elementBaseTop + 'px';
+        elementBase.style.height = elementBaseHeight + 'px';
+        elementBase.style.width = elementBaseWidth + 'px';
+        elementBase.style.backgroundColor = 'white';
+        elementBase.style.zIndex = zIndex + 1;
+                // drag element
+                if (i == initialColumn) this.de = element;
+                back.appendChild(elementBase);
+                if (i != initialColumn) elementBase.appendChild(element);
+                
+                
 
 				// DEBUGGING
                 //front.style.top = 50 + 'px';
 				//if (i == initialColumn) front.style.top = numericProperty(middle.style.top) + 10 + 'px';
 
-                // drag element
-                if (i == initialColumn) this.de = front;
-                back.appendChild(middle);
-                if (i != initialColumn) middle.appendChild(front);
             }
             back.appendChild(this.de);
             document.body.appendChild(back);
@@ -247,69 +196,64 @@ function benchmark(text, time) {
             var distance = pageX(event)-pageX(this.mouseDownEvent),
 				distance = pageX(event)-this.mouseDownEvent1,
                 lastColumn = this.lc,
-                eventColumn = getTableColumn(table, event, lastColumn),
-                diffLeft = this.diffLeft;
+                eventColumn = getTableColumn(table, event, lastColumn);
 				
-			DEBUG && log(event);
-			DEBUG && log(this.mouseDownEvent);
-			DEBUG && log('numericProperty(this.de.style.left): ' + numericProperty(this.de.style.left));
-			DEBUG && log('distance: ' + distance);
+			//DEBUG && log(event);
+			//DEBUG && log(this.mouseDownEvent);
+			//DEBUG && log('numericProperty(this.de.style.left): ' + numericProperty(this.de.style.left));
+			//DEBUG && log('distance: ' + distance);
             
             this.de.style.left = numericProperty(this.de.style.left) + distance + 'px';
  
             if (eventColumn != lastColumn) { // bubble
 
-                var borderCollapse = elementStyleProperty(table,'border-collapse'),
-                    borderSpacing = borderCollapse=='collapse' ? 0 : numericProperty(elementStyleProperty(table,'border-spacing')),
+                var trident = tridentDetection(),
+                    borderCollapse = borderCollapseDetection(),
+                    borderSpacing = borderCollapse ? 0 : numericProperty(elementStyleProperty(table,'border-spacing')),
                     direction = sign(eventColumn - lastColumn);
                 
-                DEBUG && log('borderCollapse: ' + borderCollapse);
-                DEBUG && log('borderSpacing: ' + borderSpacing);
-                DEBUG && log('direction: ' + direction);
+                //DEBUG && log('borderCollapse: ' + borderCollapse);
+                //DEBUG && log('borderSpacing: ' + borderSpacing);
+                //DEBUG && log('direction: ' + direction);
                 DEBUG && log('last column: ' + lastColumn + ' initial column: ' + this.ic + ' event column: ' + eventColumn);
 
 				for (var i = lastColumn; i != eventColumn; i+=direction) {
                     var start = i,
                         end = start + direction,
+                        shift = 0,
+                        shift = (direction<0 && start>this.ic) ? 1 : ((direction>0 && start<this.ic) ? -1 : 0),
                         permutationMemory = this.pm,
-                        layer = this.overlay.childNodes[permutationMemory[end]],
-                        movinglayer = this.overlay.childNodes[permutationMemory[start]],
-						ie = browserDetection() == 'ie' ? true : false;
+                        layer = this.overlay.childNodes[end+shift],
+                        movinglayer = this.overlay.childNodes[this.ic]; // bleibt eigentlich immer gleich, sinnlos so, beim mouseDown ausgewählt ändert sich das Element nicht mehr
                     
-                    DEBUG && log('start: ' + start + ' direction: ' + direction + ' end: ' + end);
+                    DEBUG && log('start: ' + start + ' pm[start]: ' + permutationMemory[start] + ' direction: ' + direction + ' end: ' + end + ' pm[end]:' + permutationMemory[end] + ' end+shift: ' + (end+shift));
+                    DEBUG && log(layer);
 
                     if (direction<0) { // to the left
                         var borderLeftWidth = numericProperty(elementStyleProperty(layer.childNodes[0],'border-left-width')),
-                            borderLeftWidth = borderCollapse=='separate' ? 0 : borderLeftWidth,
+                            borderLeftWidth = borderCollapse ? borderLeftWidth : 0,
                             left = numericProperty(layer.style.left),
                             width = numericProperty(movinglayer.style.width);
                         
-                        DEBUG && log('borderLeftWidth: ' + borderLeftWidth);
-                        DEBUG && log('left: ' + left);
-                        DEBUG && log('width: ' + width);
+                        //DEBUG && log('layer.offsetWidth,: ' + layer.offsetWidth);
+                        //DEBUG && log('left: ' + left);
+                        //DEBUG && log('width: ' + width);
                         
                         movinglayer.style.left = left+'px';
-						if (ie) {
-							layer.style.left = left+width+borderSpacing +'px';
-						} else {
-							layer.style.left = left+width+borderSpacing - (diffLeft ? borderLeftWidth : 0) +'px';
-						}
+						layer.style.left = left+width+borderSpacing - borderLeftWidth +'px';
                     } else { // to the right
                         var borderLeftWidth = numericProperty(elementStyleProperty(this.de,'border-left-width')),
-                            borderLeftWidth = borderCollapse=='separate' ? 0 : borderLeftWidth,
+                            borderLeftWidth = borderCollapse ? borderLeftWidth : 0,
                             left = numericProperty(movinglayer.style.left),
                             width = numericProperty(layer.style.width);
                         
-                        DEBUG && log('borderLeftWidth: ' + borderLeftWidth);
-                        DEBUG && log('left: ' + left);
-                        DEBUG && log('width: ' + width);
+                        //DEBUG && log('movinglayer.offsetWidth,: ' + movinglayer.offsetWidth);
+                        //DEBUG && log('borderLeftWidth: ' + borderLeftWidth);
+                        //DEBUG && log('left: ' + left);
+                        //DEBUG && log('width: ' + width);
                         
                         layer.style.left = left+'px';
-						if (ie) {
-							movinglayer.style.left = left+width+borderSpacing +'px';
-						} else {
-							movinglayer.style.left = left+width+borderSpacing - (diffLeft ? borderLeftWidth : 0) +'px';
-						}
+						movinglayer.style.left = left+width+borderSpacing - borderLeftWidth +'px';
                     } 
             
                     // shift
@@ -318,8 +262,10 @@ function benchmark(text, time) {
                     // set new column
                     this.lc = end;
 				}
+                
+                saveState(table, this.pm);
             }
-            DEBUG && log('save event');
+            //DEBUG && log('save event');
 
             this.mouseDownEvent = event;
 			this.mouseDownEvent1 = pageX(event);
@@ -330,7 +276,7 @@ function benchmark(text, time) {
             
             // move column if neccessary
             var col = getTableColumn(table, event, this.lc);
-            DEBUG && log('last column: ' + this.lc + ' initial column: ' + this.ic + ' event column: ' + col);
+            //DEBUG && log('last column: ' + this.lc + ' initial column: ' + this.ic + ' event column: ' + col);
             if (col != this.ic)
                 moveTableColumn(table,this.ic,col);
             
@@ -358,6 +304,8 @@ function benchmark(text, time) {
             this.nc = this.hr.cells.length;
             // to keep context
             var that = this;
+            // permutation memory
+            this.pm = restoreState(table);
 
             DEBUG && log('Number of cells: ' + this.nc);
             DEBUG && log('Number of rows: ' + table.rows.length + ' (including header row)');
@@ -372,14 +320,14 @@ function benchmark(text, time) {
                     that.mouseDown(event);
                 });
             }
-
+            
             return false;
         },
         
         // This simple javascript code is based on 
         // https://github.com/jquery/jquery-ui/blob/master/ui/mouse.js
         mouseDown: function (event) {
-			DEBUG && log(event);
+			//DEBUG && log(event);
 			// cross browser support
 			event = event || window.event;
 
@@ -433,10 +381,9 @@ function benchmark(text, time) {
         // This simple javascript code is based on 
         // https://github.com/jquery/jquery-ui/blob/master/ui/mouse.js
         mouseMove: function(event) {
-			DEBUG && log(event);
+			//DEBUG && log(event);
 			// cross browser support
 			event = event || window.event;
-
 		
             // Iframe mouseup check - mouseup occurred in another document
             if ( !eventWhich(event) ) {
@@ -489,9 +436,9 @@ function benchmark(text, time) {
             var x = Math.abs(pageX(this.mouseDownEvent) - pageX(event)),
                 y = Math.abs(pageY(this.mouseDownEvent) - pageY(event));
 				
-			DEBUG && log(this.mouseDownEvent);
-			DEBUG && log(pageX(this.mouseDownEvent));
-			DEBUG && log('x: ' + x + ' y: ' + y);
+			//DEBUG && log(this.mouseDownEvent);
+			//DEBUG && log(pageX(this.mouseDownEvent));
+			//DEBUG && log('x: ' + x + ' y: ' + y);
 
             return (Math.sqrt(x*x + y*y)) >= this.options.distance;
         },
@@ -559,7 +506,7 @@ function benchmark(text, time) {
 	function pageX (event) {
 		var pageX = event.pageX;
 		
-		DEBUG && log(event.clientX + ' ' + document.documentElement.scrollLeft + ' ' + document.body.scrollLeft + ' ' + document.documentElement.clientLeft + ' ' + document.body.clientLeft);
+		//DEBUG && log(event.clientX + ' ' + document.documentElement.scrollLeft + ' ' + document.body.scrollLeft + ' ' + document.documentElement.clientLeft + ' ' + document.body.clientLeft);
 		
 		if (typeof pageX == 'undefined') {
 			pageX = event.clientX + ( document.documentElement && document.documentElement.scrollLeft || document.body && document.body.scrollLeft || 0 ) - ( document.documentElement && document.documentElement.clientLeft || document.body && document.body.clientLeft || 0 );
@@ -620,7 +567,102 @@ function benchmark(text, time) {
 	function sign (x) {
         return typeof x == 'number' ? x ? x < 0 ? -1 : 1 : x === x ? 0 : NaN : NaN;
     }
+    
+    // storage functions
+    // load state and returns the array
+    function loadState () {
+        var state = localStorage.getItem('table-drag');
+        //DEBUG && log('restored state: ' + state);
+        if (state != null) {
+            try {
+                state = JSON.parse(state);
+            } catch (e) {
+                DEBUG && log(e);
+                console.log(e);
+            }
+        } else {
+            state = new Array();
+        }
+        //DEBUG && log(state);
+        return state;
+    }
+    function saveState(table, permutationMemory) {
+        var state = loadState (),
+            id = table.getAttribute('id'),
+            element = {tableId: id, permutationMemory: permutationMemory};
+        
+        //find element
+        var findIndex = state.findIndex(function (element, index, array) {
+            var tableId = element['tableId'];
+            if (tableId != id) {
+                return false; 
+            } else {
+                return true;
+            }
+        });
+        
+        //DEBUG && log('findIndex: ' + findIndex);
+        
+        // place element
+        if (findIndex < 0) {
+            state.push(element);
+        } else {
+            state.splice(findIndex, 1, element);
+        }
+        
+        localStorage.setItem('table-drag', JSON.stringify(state));
+    }
+    
+    function restoreState (table) {
+        var state = loadState (),
+            id = table.getAttribute('id');
+        
+        //find element
+        var findIndex = state.findIndex(function (element, index, array) {
+            var tableId = element['tableId'];
+            if (tableId != id) {
+                return false; 
+            } else {
+                return true;
+            }
+        });
+        
+        // initial permutation memory
+        var nc = table.rows[0].cells.length,
+            pm = new Array(nc);
+        for (var i=0; i<nc; i++) {
+            pm[i] = i;
+        }
+        
+        // place element
+        if (findIndex < 0) {
+            return pm;
+        } else {
+            var element = state[findIndex],
+                permutationMemory = element['permutationMemory'],
+                length = permutationMemory.length;
+            
+            //check length
+            if (nc == length) {
+                for (var i=0; i<permutationMemory.length; i++) {
+                    var start = permutationMemory[i],
+                        end = i;
+                    pm.move(start, end);
+                    if (pm[i] != start) moveTableColumn(table, start, end);
+                }
+                
+                return permutationMemory;
+            } else {
+                return pm;
+            }
+        }
 
+        //localStorage.removeItem('table-drag');
+        //this.pm.move(start, end);
+    }
+        
+        
+        
     // based on
     // https://github.com/tristen/tablesort/blob/gh-pages/src/tablesort.js
     // line 297 - 301
@@ -628,5 +670,35 @@ function benchmark(text, time) {
         module.exports = TableDrag;
     } else {
         window.TableDrag = TableDrag;
+    }
+    
+    if (!Array.prototype.findIndex) {
+      Object.defineProperty(Array.prototype, 'findIndex', {
+        enumerable: false,
+        configurable: true,
+        writable: true,
+        value: function(predicate) {
+          if (this == null) {
+            throw new TypeError('Array.prototype.find called on null or undefined');
+          }
+          if (typeof predicate !== 'function') {
+            throw new TypeError('predicate must be a function');
+          }
+          var list = Object(this);
+          var length = list.length >>> 0;
+          var thisArg = arguments[1];
+          var value;
+    
+          for (var i = 0; i < length; i++) {
+            if (i in list) {
+              value = list[i];
+              if (predicate.call(thisArg, value, i, list)) {
+                return i;
+              }
+            }
+          }
+          return -1;
+        }
+      });
     }
 })();
