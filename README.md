@@ -73,6 +73,34 @@ Just before the end of your body section put
 </script>
 ```
 
+###Features
+
+You can pass in options as a second parameter
+
+```html
+  new TableDrag(document.getElementById('example'), { distance: 0, restoreState: true });
+```
+
+**distance**
+
+To distinguish between click and drag one can set the minimum drag distance. 
+Starting from the mouse down event (e.g. the user presses the left mouse button) there is a virtual cirlce. 
+Within it the mouse has to move after the mouse down event
+
+How does dragtable distinguish a click from a drag?
+
+This should only be relevant if you’re using dragtable together with sorttable. 
+If a user clicks a column header and then moves the mouse some amount, dragtable assumes they want to rearrange the columns. 
+If they don’t move the mouse very much, dragtable considers it a click and sorttable will take it as a cue to sort on that column. T
+he exact cutoff is a 10 pixel radius, but you can customize this by calling:
+
+dragtable.setMinDragDistance(5);
+
+somewhere on your page.
+
+
+**restoreState**
+
 ###References
 
 This small javascript component uses or is based on other javascript projects and code snippets:
