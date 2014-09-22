@@ -4,7 +4,7 @@ if (typeof DEBUG === "undefined") DEBUG = true;
 // debugging utils
 function log() {
     var a = arguments[0],
-                    s = arguments.length > 1 ? Array.prototype.slice.call(arguments) : a;
+        s = arguments.length > 1 ? Array.prototype.slice.call(arguments) : a;
 
     if (typeof console !== "undefined" && typeof console.log !== "undefined") {
         console[/error/i.test(a) ? 'error' : /warn/i.test(a) ? 'warn' : 'log'](s);
@@ -20,23 +20,241 @@ function benchmark(text, time) {
 (function () {
     "use strict";
 
+	// template for left mouse button actions: click vs drag
+	// based on
+	// https://github.com/jquery/jquery-ui/blob/master/ui/mouse.js
+	// with basic ie8 support
+	// if you want more special ie8 functionality or have some ie8 bugs see the comments and code in the mentioned url above
+    function MouseHandler () {
+		//this._mouseDownEvent
+		//this._mouseStarted
+		//this._mouseMoveDelegate
+		//this._mouseUpDelegate
+    }
+    MouseHandler.prototype = (function () {
+		// helper functions
+		
+		// Cross browser event data based on
+		// jquery implementation
+		function getEvent(event) {
+			return event || window.event;
+		}
+		function eventWhich(event) {
+			return event.which || event.button;
+		}
+		function eventPageX(event) {
+			var pageX = event.pageX;
+
+			if (typeof pageX == 'undefined') {
+				var body = document.body;
+				var docElem = document.documentElement;
+				pageX = event.clientX + (docElem && docElem.scrollLeft || body && body.scrollLeft || 0) - (docElem && docElem.clientLeft || body && body.clientLeft || 0);
+			}
+
+			return pageX;
+		}
+		function eventPageY(event) {
+			var pageY = event.pageY;
+
+			if (typeof pageY == 'undefined') {
+				var body = document.body;
+				var docElem = document.documentElement;
+				pageY = event.clientY + (docElem && docElem.scrollTop || body && body.scrollTop || 0) - (docElem && docElem.clientTop || body && body.clientTop || 0);
+			}
+
+			return pageY;
+		}
+		
+		// prototype functions
+		
+        function _mouseDown(event) {
+			// ie8 support
+            event = getEvent(event);
+
+            // we may have missed mouseup (out of window) - clean start, reset all
+            (this._mouseStarted && this._mouseUp(event));
+
+            // to compute the first (and the following) mouse move correctly
+            this._mouseDownEvent = event;
+			// the above line only works for ie>8,  because _mouseDownEvent is a reference to the event
+			// so in ie8 you have two references (_mouseDownEvent and event) which points to the same object, the window.event
+			// to overcome this, you need a copy of the event e.g.
+			if (!event.which) { // detect ie8
+				var copy = {};
+				for (var attr in event) {
+					copy[attr] = event[attr];
+				}
+				this._mouseDownEvent = copy;
+			}
+
+            // only left mouse button down is of interest
+			// ie8 support
+            if (eventWhich(event) !== 1) {
+                return true;
+            }
+
+            // lets start and check distance first
+            if (this.options.distance == 0) {
+				this._mouseStarted = this._mousePrepareDrag(event) !== false;
+				if (!this._mouseStarted) {
+					// ie8 support
+					
+					(event.preventDefault ? event.preventDefault() : (event.returnValue=false));
+					(event.stopPropagation ? event.stopPropagation() : (event.cancelBubble=true));
+					
+					return true;
+                }
+            } else {
+				this._mousePrepareClick(event);
+			}
+
+            // to keep context
+            var _this = this;
+            this._mouseMoveDelegate = function (event) {
+                return _this._mouseMove(event);
+            };
+            this._mouseUpDelegate = function (event) {
+                return _this._mouseUp(event);
+            };
+
+            addEvent(document.body, 'mousemove', this._mouseMoveDelegate);
+            addEvent(document.body, 'mouseup', this._mouseUpDelegate);
+
+			// ie8 support
+			(event.preventDefault ? event.preventDefault() : (event.returnValue=false));
+			(event.stopPropagation ? event.stopPropagation() : (event.cancelBubble=true));
+
+            return true;
+		}
+        function _mouseMove(event) {
+			// ie8 support
+            event = getEvent(event);
+
+            // Iframe mouseup check - mouseup occurred in another document
+            if (!eventWhich(event)) {
+                return this._mouseUp(event);
+            }
+
+            // drag functionality
+            if (this._mouseStarted) {
+			
+                this._mouseDrag(event);
+                
+				// ie8 support
+				(event.preventDefault ? event.preventDefault() : (event.returnValue=false));
+				(event.stopPropagation ? event.stopPropagation() : (event.cancelBubble=true));
+
+                return false;
+            }
+
+            // check distance (no action circle)
+            if (this._mouseDistanceMet(event, this._mouseDownEvent)) {
+				// lets start
+                this._mouseStarted = (this._mousePrepareDrag(this._mouseDownEvent, event) !== false);
+				// and move or stop
+                (this._mouseStarted ? this._mouseDrag(event) : this._mouseUp(event));
+            }
+
+			// ie8 support
+			(event.preventDefault ? event.preventDefault() : (event.returnValue=false));
+			(event.stopPropagation ? event.stopPropagation() : (event.cancelBubble=true));
+			
+            return !this.mouseStarted;
+		}
+        function _mouseUp(event) {
+			// ie8 support
+            event = getEvent(event);
+			
+            removeEvent(document.body, 'mousemove', this._mouseMoveDelegate);
+            removeEvent(document.body, 'mouseup', this._mouseUpDelegate);
+
+            if (this._mouseStarted) {
+                this._mouseStarted = false;
+
+				this._mouseStopDrag(event);
+            } else {
+				this._mouseExecuteClick(event);
+			}
+
+			// ie8 support
+			(event.preventDefault ? event.preventDefault() : (event.returnValue=false));
+			(event.stopPropagation ? event.stopPropagation() : (event.cancelBubble=true));
+				
+            return false;
+		}
+        function _mouseDistanceMet(newEvent, lastEvent) {
+			var x = Math.abs(eventPageX(lastEvent) - eventPageX(newEvent)),
+				y = Math.abs(eventPageY(lastEvent) - eventPageY(newEvent));
+			return (Math.sqrt(x*x + y*y)) >= this.options.distance;
+		}
+
+        // These are placeholder methods, to be overriden by extentions
+        function _mousePrepareClick() {}
+		function _mousePrepareDrag() {}
+        function _mouseDrag(event) {}
+        function _mouseExecuteClick() {}
+		function _mouseStopDrag() {}
+		
+		return {
+			constructor: MouseHandler,
+			options: {
+                distance: 0
+			},
+			_mouseDown: _mouseDown,
+			_mouseMove: _mouseMove,
+			_mouseUp: _mouseUp,
+			_mouseDistanceMet: _mouseDistanceMet,
+			_mousePrepareClick: _mousePrepareClick,
+			_mousePrepareDrag: _mousePrepareDrag,
+			_mouseDrag: _mouseDrag,
+			_mouseExecuteClick: _mouseExecuteClick,
+			_mouseStopDrag: _mouseStopDrag
+		};
+	})();
+	
     // This simple and small javascript solution for dragging html tables
     // is roughly based on
     // http://akottr.github.io/dragtable/
     // and
     // http://www.danvk.org/wp/dragtable/
-    function TableDrag(table, options) {
-        if (table && table.tagName !== 'TABLE') {
-            DEBUG && log('ERROR: DOM element/input is not a table!');
-            console.log('ERROR: DOM element/input is not a table!');
-            return '';
-        }
+    function DragHandler(table, options) {
 
-        if (this.init(table, options || {})) {
-            return '';
-        }
+		//set default options
+		this.options.restoreState = true;
+		
+        // set options
+        for (var opt in this.options)
+            if (options.hasOwnProperty(opt))
+                this.options[opt] = options[opt];
+		
+		// table
+		this.table = table;
+        // header row
+        this.hr = table.rows[0];
+		// number of columns
+		this.nc = this.hr.cells.length;
+        // number of rows
+        this.nr = table.rows.length;
 
-        // private functions
+		this._init();
+    }
+    (function () {
+		DragHandler.prototype = new MouseHandler();
+		DragHandler.prototype.constructor = DragHandler;
+		
+		// helper functions
+		
+		function eventPageX(event) {
+			var pageX = event.pageX;
+
+			if (typeof pageX == 'undefined') {
+				var body = document.body;
+				var docElem = document.documentElement;
+				pageX = event.clientX + (docElem && docElem.scrollLeft || body && body.scrollLeft || 0) - (docElem && docElem.clientLeft || body && body.clientLeft || 0);
+			}
+
+			return pageX;
+		}
         function elementStyleProperty(element, prop) {
             if (window.getComputedStyle) {
                 return window.getComputedStyle(element, "").getPropertyValue(prop);
@@ -50,21 +268,160 @@ function benchmark(text, time) {
                 }
                 return element.currentStyle[prop]
             }
-        };
-        function numericProperty(prop) {
+        }
+		function numericProperty(prop) {
             return (typeof prop == 'undefined' || prop == '' || prop == null) ? 0 : parseInt(prop);
-        };
+        }
+		function eventTarget (event) {
+			return event.target || event.srcElement;
+		}
         function tridentDetection() {
             return (navigator.userAgent.indexOf("Trident") != -1) ? true : false;
         };
-        function borderCollapseDetection() {
+        function borderCollapseDetection(table) {
             return elementStyleProperty(table, 'border-collapse') == 'collapse' ? true : false;
         }
+		
+		function getTableColumn(table, pageX, defaultColumn) {
+			var cells = table.rows[0].cells;
+			for (var i = 0; i < cells.length; i++) {
+				var tx = getOffsetRect(cells[i]).left;
+				if (tx <= pageX && pageX <= tx + cells[i].offsetWidth) {
+					return i;
+				}
+			}
 
-        // The overriden placeholder methods
-        this.mouseStart = function (initialColumn) {
-            var trident = tridentDetection(),
-				borderCollapse = borderCollapseDetection(),
+			return (typeof defaultColumn == 'undefined' ? -1 : defaultColumn);
+		}
+
+		function copyStyles(el) {
+			var cs = window.getComputedStyle ? window.getComputedStyle(el, null) : el.currentStyle,
+				css = '';
+			for (var i = 0; i < cs.length; i++) {
+				var style = cs[i];
+				css += style + ': ' + cs.getPropertyValue(style) + ';';
+			}
+			return css;
+		}
+		
+		// storage functions
+		// load state and returns the array
+		function loadState(key) {
+			var state = localStorage.getItem(key);
+
+			if (state != null) {
+				try {
+					state = JSON.parse(state);
+				} catch (e) {
+					state = new Array();
+				}
+			} else {
+				state = new Array();
+			}
+
+			return state;
+		}
+		function getIndex(state, searchId) {
+			//find element
+			var index = state.findIndex(function (element, index, array) {
+				var id = element.id;
+				if (id != searchId) {
+					return false;
+				} else {
+					return true;
+				}
+			});
+			
+			return index;
+		}
+		function saveState(key, table /* name, prop*/) {
+			// ie in offline mode can't use localStorage,
+			// use alternative storage like
+			// https://github.com/andris9/simpleStorage
+			// or many more alternatives on
+			// https://github.com/Modernizr/Modernizr/wiki/HTML5-Cross-browser-Polyfills
+			if (!localStorage) {
+                console.log('localStorage not supported or not usable (i.e. ie in offline mode).');
+				return; 
+			}
+			
+			var state = loadState(key),
+				id = table.getAttribute('id'),
+				element = {id: id},
+				index = getIndex(state, id);
+				
+			for (var i = 2; i < arguments.length; i+=2) {
+				element[arguments[i]] = arguments[i+1];
+			}
+
+			// place element
+			if (index < 0) {
+				state.push(element);
+			} else {
+				state.splice(index, 1, element);
+			}
+
+			localStorage.setItem(key, JSON.stringify(state));
+		}
+		function restoreState(key, table, name) {
+			// ie in offline mode can't use localStorage,
+			// use alternative storage like
+			// https://github.com/andris9/simpleStorage
+			// or many more alternatives on
+			// https://github.com/Modernizr/Modernizr/wiki/HTML5-Cross-browser-Polyfills
+			if (!localStorage) {
+                console.log('localStorage not supported or not usable (i.e. ie in offline mode).');
+				return; 
+			}
+
+			var state = loadState(key),
+				id = table.getAttribute('id'),
+				index = getIndex(state, id),
+				nc = table.rows[0].cells.length,
+				pm = new Array(nc);
+			for (var i = 0; i < nc; i++) {
+				pm[i] = i;
+			}
+		
+			if (index >= 0) {
+				var element = state[index],
+					memory = element[name],
+					length = memory.length,
+					nc = table.rows[0].cells.length;
+		
+				//check length
+				if (nc == length) {
+                    for (var i = 0; i < length; i++) {
+                        var start = memory[i],
+                            end = i;
+                        pm.move(start, end);
+                        if (pm[i] != start) moveTableColumn(table, start, end);
+                    }
+					pm = memory;
+				}
+			}
+
+			return pm;
+		}
+
+		// private functions
+		
+		DragHandler.prototype._init = function () {
+            this.pm = new Array(this.nc);
+			for (var i = 0; i < this.nc; i++) {
+				this.pm[i] = i;
+			}
+
+			if (this.options.restoreState)
+				this.pm = restoreState('table-drag', this.table, 'drag');
+		};
+
+		// the overriden placeholder methods
+		
+		DragHandler.prototype._mousePrepareDrag = function (event) {
+			var trident = tridentDetection(),
+				table = this.table,
+				borderCollapse = borderCollapseDetection(table),
 				tablePosition = getOffsetRect(table),
 				row = table.rows[0],
 				rowPosition = getOffsetRect(row),
@@ -77,6 +434,7 @@ function benchmark(text, time) {
                 backHeight = table.rows[0].offsetHeight,
 				zIndex = numericProperty(table.style.zIndex),
                 zIndex = zIndex ? zIndex + 1 : 1,
+				initialColumn = eventTarget(event).cellIndex,
                 backgroundColor = elementStyleProperty(table, 'background-color');
 
             DEBUG && log('trident: ' + trident + ' borderCollapse: ' + borderCollapse);
@@ -181,18 +539,19 @@ function benchmark(text, time) {
             document.body.style.cursor = 'move';
 
             return true;
-        };
-        this.mouseDrag = function (pageX) {
-            var distance = pageX - this.pageX,
+		};
+		DragHandler.prototype._mouseDrag = function (event) {
+            var distance = eventPageX(event) - eventPageX(this._mouseDownEvent),
+				table = this.table,
                 lastColumn = this.lc,
-                eventColumn = getTableColumn(table, pageX, lastColumn);
+                eventColumn = getTableColumn(table, eventPageX(event), lastColumn);
 
             this.de.style.left = numericProperty(this.de.style.left) + distance + 'px';
 
             if (eventColumn != lastColumn) { // bubble
 
                 var trident = tridentDetection(),
-                    borderCollapse = borderCollapseDetection(),
+                    borderCollapse = borderCollapseDetection(table),
                     borderSpacing = borderCollapse ? 0 : numericProperty(elementStyleProperty(table, 'border-spacing')),
                     direction = sign(eventColumn - lastColumn);
 
@@ -217,225 +576,130 @@ function benchmark(text, time) {
                     this.lc = end;
                 }
 
-                saveState(table, this.pm);
+				saveState('table-drag', this.table, 'drag', this.pm);
             }
 
-            this.pageX = pageX;
-        };
-        this.mouseStop = function (pageX) {
+			this._mouseDownEvent = event;
+			if (!event.which) { // detect ie8
+				var copy = {};
+				for (var attr in event) {
+					copy[attr] = event[attr];
+				}
+				this._mouseDownEvent = copy;
+			}
+		}
+		DragHandler.prototype._mouseStopDrag = function () {
             // remove overlay
             document.body.removeChild(this.overlay);
 
             // move column if neccessary
-            var col = getTableColumn(table, pageX, this.lc);
+			var table = this.table,
+				col = getTableColumn(table, eventPageX(event), this.lc);
             if (col != this.ic)
                 moveTableColumn(table, this.ic, col);
 
             // restore mouse cursor
             document.body.style.cursor = this.cur;
-        };
-    }
+		};
+	})();
 
-    TableDrag.prototype = {
-        // default option settings
-        options: {
-            distance: 0,
-            restoreState: false
-        },
-
-        init: function (table, options) {
-            // check empty table
-            if (!(table && table.rows && table.rows.length > 0)) {
-                DEBUG && log('WARNING: Empty table.');
-                return true;
-            }
-
-            // set options
-            for (var opt in this.options)
-                if (options.hasOwnProperty(opt))
-                    this.options[opt] = options[opt];
-
-            // header row
-            this.hr = table.rows[0];
-            // number of cells
-            this.nc = this.hr.cells.length;
-            // to keep context
-            var that = this;
-            // permutation memory
-            this.pm = restoreState(table, this.options.restoreState);
-
-            DEBUG && log('Number of cells: ' + this.nc);
-            DEBUG && log('Number of rows: ' + table.rows.length + ' (including header row)');
-
-            // attach handlers to each cell of the header row.
-            for (var i = 0; i < this.nc; i++) {
-                var cell = this.hr.cells[i];
-                // add move cursor
-                cell.style.cursor = 'move';
-
-                addEvent(cell, 'mousedown', function (event) {
-                    that.mouseDown(event);
-                });
-            }
-
-            return false;
-        },
-
-        // This simple javascript code is based on 
-        // https://github.com/jquery/jquery-ui/blob/master/ui/mouse.js
-        mouseDown: function (event) {
-			// cross browser support
-            event = getEvent(event);
-			
-			var pageX = eventPageX(event),
-				pageY = eventPageY(event);
-
-            // we may have missed mouseup (out of window) - clean start, reset all
-            (this.mouseStarted && this.mouseUp(event));
-
-            // to compute the first (and the following) resize move correctly
-			this.pageX = pageX;
-			this.pageY = pageY;
-
-            // only left mouse button down is of interest
-            if (eventWhich(event) !== 1) {
-                return true;
-            }
-
-            // lets start
-            if (this.mouseDistanceMet(pageX, pageY)) {
-                this.mouseStarted = (this.mouseStart(eventTarget(event).cellIndex) !== false);
-                if (!this.mouseStarted) {
-					// cross browser support
-                    if (event.preventDefault) {
-                        event.preventDefault();
-                    } else {
-                        event.returnValue = false;
-                    }
-
-                    return true;
-                }
-            }
-
-            // to keep context
-            var that = this;
-            this.mouseMoveDelegate = function (event) {
-                return that.mouseMove(event);
-            };
-            this.mouseUpDelegate = function (event) {
-                return that.mouseUp(event);
-            };
-
-            addEvent(document.body, 'mousemove', this.mouseMoveDelegate);
-            addEvent(document.body, 'mouseup', this.mouseUpDelegate);
-
-			// cross browser support
-            if (event.preventDefault) {
-                event.preventDefault();
-            } else {
-                event.returnValue = false;
-            }
-
-            return true;
-        },
-
-        // This simple javascript code is based on 
-        // https://github.com/jquery/jquery-ui/blob/master/ui/mouse.js
-        mouseMove: function (event) {
-			// cross browser support
-            event = getEvent(event);
-
-			var pageX = eventPageX(event),
-				pageY = eventPageY(event);
-
-            // Iframe mouseup check - mouseup occurred in another document
-            if (!eventWhich(event)) {
-                return this.mouseUp(event);
-            }
-
-            // drag functionality
-            if (this.mouseStarted) {
-                this.mouseDrag(pageX);
-                if (event.preventDefault) {
-                    return event.preventDefault();
-                } else {
-                    event.returnValue = false;
-                }
-
-                return false;
-            }
-
-            // within no action circle
-            if (this.mouseDistanceMet(pageX, pageY)) {
-                this.mouseStarted = (this.mouseStart(eventTarget(event).cellIndex) !== false);
-
-                (this.mouseStarted ? this.mouseDrag(pageX) : this.mouseUp(event));
-            }
-
-            return !this.mouseStarted;
-        },
-
-        // This simple javascript code is based on
-        // https://github.com/jquery/jquery-ui/blob/master/ui/mouse.js
-        mouseUp: function (event) {
-            // cross browser support
-            event = getEvent(event);
-			
-			var pageX = eventPageX(event);
-
-            removeEvent(document.body, 'mousemove', this.mouseMoveDelegate);
-            removeEvent(document.body, 'mouseup', this.mouseUpDelegate);
-
-            if (this.mouseStarted) {
-                this.mouseStarted = false;
-
-                this.mouseStop(pageX);
-            }
-
-            return false;
-        },
-
-        // This simple javascript code is roughly based on 
-        // https://github.com/jquery/jquery-ui/blob/master/ui/mouse.js
-        mouseDistanceMet: function (pageX, pageY) {
-            var x = Math.abs(this.pageX - pageX),
-                y = Math.abs(this.pageY - pageY);
-
-            return (Math.sqrt(x * x + y * y)) >= this.options.distance;
-        },
-
-        // These are placeholder methods, to be overriden by extentions
-        mouseStart: function () { },
-        mouseDrag: function () { },
-        mouseStop: function () { },
-    };
-
-    function getTableColumn(table, pageX, defaultColumn) {
-        var cells = table.rows[0].cells;
-        for (var i = 0; i < cells.length; i++) {
-            var tx = getOffsetRect(cells[i]).left;
-            if (tx <= pageX && pageX <= tx + cells[i].offsetWidth) {
-                return i;
-            }
+    // This simple and small javascript solution for resizing html tables
+    // is based on
+    // http://bz.var.ru/comp/web/resizable.html
+    // Browser support: IE9+, current Chrome, Firefox, etc.
+    function TableDrag(table, options) {
+		// check input
+        if (table && table.tagName !== 'TABLE') {
+			console.log('ERROR: DOM element/input is not a table!');
+            return;
+        }
+		
+        // check empty table
+        if (!(table && table.rows && table.rows.length > 0)) {
+			console.log('WARNING: Empty table.');
+            return;
         }
 
-        return (typeof defaultColumn == 'undefined' ? -1 : defaultColumn);
-    }
+        var dragHandler = new DragHandler(table, options || {});
+		
+        // attach handlers to each cell of the header row.
+        for (var i = 0; i < dragHandler.nc; i++) {
+            var cell = dragHandler.hr.cells[i];
+            
+			// add move cursor
+            cell.style.cursor = 'move';
 
-    function copyStyles(el) {
-        var cs = window.getComputedStyle ? window.getComputedStyle(el, null) : el.currentStyle,
-            css = '';
-        for (var i = 0; i < cs.length; i++) {
-            var style = cs[i];
-            css += style + ': ' + cs.getPropertyValue(style) + ';';
+            addEvent(cell, 'mousedown', function (event) {
+                dragHandler._mouseDown(event);
+            });
         }
-        return css;
+    }
+	
+    // export
+    
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = TableDrag;
+    } else {
+        window.TableDrag = TableDrag;
     }
 
-    // http://stackoverflow.com/questions/2440700/reordering-arrays
-    Array.prototype.move = function (from, to) {
-        this.splice(to, 0, this.splice(from, 1)[0]);
-    };
+    // polyfills and public code snippets
+
+	// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/findIndex
+	if (!Array.prototype.findIndex) {
+		try {
+			Object.defineProperty(Array.prototype, 'findIndex', {
+				enumerable: false,
+				configurable: true,
+				writable: true,
+				value: function (predicate) {
+					if (this == null) {
+						throw new TypeError('Array.prototype.find called on null or undefined');
+					}
+					if (typeof predicate !== 'function') {
+						throw new TypeError('predicate must be a function');
+					}
+					var list = Object(this);
+					var length = list.length >>> 0;
+					var thisArg = arguments[1];
+					var value;
+
+					for (var i = 0; i < length; i++) {
+						if (i in list) {
+							value = list[i];
+							if (predicate.call(thisArg, value, i, list)) {
+								return i;
+							}
+						}
+					}
+					return -1;
+				}
+			});
+		} catch (e) { // ie8 support
+			Array.prototype.findIndex = function(predicate) {
+					if (this == null) {
+						throw new TypeError('Array.prototype.find called on null or undefined');
+					}
+					if (typeof predicate !== 'function') {
+						throw new TypeError('predicate must be a function');
+					}
+					var list = Object(this);
+					var length = list.length >>> 0;
+					var thisArg = arguments[1];
+					var value;
+
+					for (var i = 0; i < length; i++) {
+						if (i in list) {
+							value = list[i];
+							if (predicate.call(thisArg, value, i, list)) {
+								return i;
+							}
+						}
+					}
+					return -1;
+			}
+		}
+	}
 
     // http://ejohn.org/apps/jselect/event.html
     function addEvent(obj, type, fn) {
@@ -455,46 +719,8 @@ function benchmark(text, time) {
         } else
             obj.removeEventListener(type, fn, false);
     }
-
-    // Cross browser event data based on
-    // jquery implementation
-    function eventWhich(event) {
-        var which = event.which;
-
-        return (typeof which == 'undefined') ? event.button : which;
-    }
-    function eventPageX(event) {
-        var pageX = event.pageX;
-
-        if (typeof pageX == 'undefined') {
-			var body = document.body;
-			var docElem = document.documentElement;
-            pageX = event.clientX + (docElem && docElem.scrollLeft || body && body.scrollLeft || 0) - (docElem && docElem.clientLeft || body && body.clientLeft || 0);
-        }
-
-        return pageX;
-    }
-    function eventPageY(event) {
-        var pageY = event.pageY;
-
-        if (typeof pageY == 'undefined') {
-			var body = document.body;
-			var docElem = document.documentElement;
-            pageY = event.clientX + (docElem && docElem.scrollTop || body && body.scrollTop || 0) - (docElem && docElem.clientTop || body && body.clientTop || 0);
-        }
-
-        return pageY;
-    }
-
-    function eventTarget(event) {
-        return event.target || event.srcElement;
-    }
 	
-	function getEvent(event) {
-		return event || window.event;
-	}
-
-    // http://javascript.info/tutorial/coordinates
+   // http://javascript.info/tutorial/coordinates
     function getOffsetRect(elem) {
         // (1)
         var box = elem.getBoundingClientRect();
@@ -533,136 +759,10 @@ function benchmark(text, time) {
     function sign(x) {
         return typeof x == 'number' ? x ? x < 0 ? -1 : 1 : x === x ? 0 : NaN : NaN;
     }
-
-    // storage functions
-    // load state and returns the array
-    function loadState() {
-        var state = localStorage.getItem('table-drag');
-
-        if (state != null) {
-            try {
-                state = JSON.parse(state);
-            } catch (e) {
-                DEBUG && log(e);
-                console.log(e);
-            }
-        } else {
-            state = new Array();
-        }
-
-        return state;
-    }
-    function saveState(table, permutationMemory) {
-        var state = loadState(),
-            id = table.getAttribute('id'),
-            element = { tableId: id, permutationMemory: permutationMemory };
-
-        //find element
-        var findIndex = state.findIndex(function (element, index, array) {
-            var tableId = element['tableId'];
-            if (tableId != id) {
-                return false;
-            } else {
-                return true;
-            }
-        });
-
-        // place element
-        if (findIndex < 0) {
-            state.push(element);
-        } else {
-            state.splice(findIndex, 1, element);
-        }
-
-        localStorage.setItem('table-drag', JSON.stringify(state));
-    }
-    function restoreState(table, restore) {
-        // initial permutation memory
-        var nc = table.rows[0].cells.length,
-            pm = new Array(nc);
-        for (var i = 0; i < nc; i++) {
-            pm[i] = i;
-        }
-        
-        if (restore) {
-            var state = loadState(),
-                id = table.getAttribute('id');
-    
-            //find element
-            var findIndex = state.findIndex(function (element, index, array) {
-                var tableId = element['tableId'];
-                if (tableId != id) {
-                    return false;
-                } else {
-                    return true;
-                }
-            });
-    
-            // place element
-            if (findIndex < 0) {
-                return pm;
-            } else {
-                var element = state[findIndex],
-                    permutationMemory = element['permutationMemory'],
-                    length = permutationMemory.length;
-    
-                //check length
-                if (nc == length) {
-                    for (var i = 0; i < permutationMemory.length; i++) {
-                        var start = permutationMemory[i],
-                            end = i;
-                        pm.move(start, end);
-                        if (pm[i] != start) moveTableColumn(table, start, end);
-                    }
-                    
-                    DEBUG && log('Restored last state.');
-                    return permutationMemory;
-                } else {
-                    return pm;
-                }
-            }
-        } else {
-            return pm;
-        }
-    }
-
-    // based on
-    // https://github.com/tristen/tablesort/blob/gh-pages/src/tablesort.js
-    // line 297 - 301
-    if (typeof module !== 'undefined' && module.exports) {
-        module.exports = TableDrag;
-    } else {
-        window.TableDrag = TableDrag;
-    }
-
-    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/findIndex
-    if (!Array.prototype.findIndex) {
-        Object.defineProperty(Array.prototype, 'findIndex', {
-            enumerable: false,
-            configurable: true,
-            writable: true,
-            value: function (predicate) {
-                if (this == null) {
-                    throw new TypeError('Array.prototype.find called on null or undefined');
-                }
-                if (typeof predicate !== 'function') {
-                    throw new TypeError('predicate must be a function');
-                }
-                var list = Object(this);
-                var length = list.length >>> 0;
-                var thisArg = arguments[1];
-                var value;
-
-                for (var i = 0; i < length; i++) {
-                    if (i in list) {
-                        value = list[i];
-                        if (predicate.call(thisArg, value, i, list)) {
-                            return i;
-                        }
-                    }
-                }
-                return -1;
-            }
-        });
-    }
+	
+    // http://stackoverflow.com/questions/2440700/reordering-arrays
+    Array.prototype.move = function (from, to) {
+        this.splice(to, 0, this.splice(from, 1)[0]);
+    };
+	
 })();
