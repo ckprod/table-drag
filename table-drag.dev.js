@@ -198,7 +198,7 @@ function benchmark(text, time) {
 		return {
 			constructor: MouseHandler,
 			options: {
-                distance: 0
+				distance: 0
 			},
 			_mouseDown: _mouseDown,
 			_mouseMove: _mouseMove,
@@ -223,9 +223,10 @@ function benchmark(text, time) {
 		this.options.restoreState = true;
 		
         // set options
+		var newOptions = {};
         for (var opt in this.options)
-            if (options.hasOwnProperty(opt))
-                this.options[opt] = options[opt];
+			newOptions[opt] = options[opt] || this.options[opt];
+		this.options = newOptions;
 		
 		// table
 		this.table = table;
