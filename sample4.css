@@ -6,7 +6,7 @@
   //margin:10px 0;
   border:1px solid #ddd;
   border-collapse:separate;
-  border-collapse:collapsed;
+  *border-collapse:collapsed;
   -webkit-box-shadow:0 0 4px rgba(0,0,0,0.10);
      -moz-box-shadow:0 0 4px rgba(0,0,0,0.10);
           box-shadow:0 0 4px rgba(0,0,0,0.10);
