@@ -563,10 +563,6 @@
 		};
 	})();
 
-    // This simple and small javascript solution for resizing html tables
-    // is based on
-    // http://bz.var.ru/comp/web/resizable.html
-    // Browser support: IE9+, current Chrome, Firefox, etc.
     function TableDrag(table, options) {
 		// check input
         if (table && table.tagName !== 'TABLE') {
