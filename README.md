@@ -84,6 +84,14 @@ If you don't want to use default options, pass in an options object as second pa
 - distance (default 0): Sets the radius of a circle, where no drag action is triggered as long as mouse movements are within the circle.
 - restoreState (default true): localStorage is used to remember the order of the cells if true.
 
+###Supported browsers
+
+- Internet Explorer 8 and newer
+- Opera
+- Chrome
+- Firefox
+- Safari 5.1.7 (and highly possible newer)
+
 ###References
 
 This small javascript component uses or is based on other javascript projects and code snippets:
