@@ -206,7 +206,7 @@
         // set options
 		var newOptions = {};
         for (var opt in this.options)
-			newOptions[opt] = options[opt] === 'undefined' ?  this.options[opt] : options[opt];
+			newOptions[opt] = (typeof options[opt] == 'undefined') ?  this.options[opt] : options[opt];
 		this.options = newOptions;
 		
 		// table
