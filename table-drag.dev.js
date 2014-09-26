@@ -225,7 +225,7 @@ function benchmark(text, time) {
         // set options
 		var newOptions = {};
         for (var opt in this.options)
-			newOptions[opt] = options[opt] || this.options[opt];
+			newOptions[opt] = options[opt] === 'undefined' ?  this.options[opt] : options[opt];
 		this.options = newOptions;
 		
 		// table
@@ -576,8 +576,9 @@ function benchmark(text, time) {
                     // set new column
                     this.lc = end;
                 }
-
-				saveState('table-drag', this.table, 'drag', this.pm);
+				
+				if (this.options.restoreState)
+					saveState('table-drag', this.table, 'drag', this.pm);
             }
 
 			this._mouseDownEvent = event;
@@ -589,7 +590,7 @@ function benchmark(text, time) {
 				this._mouseDownEvent = copy;
 			}
 		}
-		DragHandler.prototype._mouseStopDrag = function () {
+		DragHandler.prototype._mouseStopDrag = function (event) {
             // remove overlay
             document.body.removeChild(this.overlay);
 
