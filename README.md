@@ -5,7 +5,7 @@ Dragging (drag'n'drop) columns of html tables.
 
 ###Samples
 
-See [here](http://irhc.github.io/table-drag) for some samples. Its a pain in the ass to get it working with all popular render engines; uncommon table layouts will eventually not work perfectly.
+See [here](http://irhc.github.io/table-drag) for some samples. Its a pain to get it working with all popular render engines; uncommon table layouts will maybe not work perfectly.
 
 ###Description
 
